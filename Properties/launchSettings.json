@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "PassPort": {
+      "commandName": "Project",
+      "commandLineArgs": "--config config.yaml"
+    }
+  }
+}

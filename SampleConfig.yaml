@@ -1,0 +1,18 @@
+log_file: log.log
+
+graph:
+  test_in:
+    module: TCPServer
+    address: 127.0.0.1
+    port: 80
+    next: test_proc
+
+  test_proc:
+    module: RequestHostReplace
+    host: 14.215.177.38
+    next: test_out
+
+  test_out:
+    module: TCPClient
+    address: 14.215.177.38
+    port: 80
