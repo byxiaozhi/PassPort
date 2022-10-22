@@ -56,7 +56,7 @@ namespace PassPort.Modules
 
         private async void ReceiveLoop(Socket socket)
         {
-            await OnConnectedAsync(socket);
+            await OnInboundConnectedAsync(socket);
             var buffer = new byte[8192];
             while (socket.Connected)
             {
@@ -64,45 +64,53 @@ namespace PassPort.Modules
                 if (length > 0)
                 {
                     Console.WriteLine($"Received: {socket.RemoteEndPoint} -> {socket.LocalEndPoint}");
-                    await OnReceivedAsync(socket, buffer[..length]);
+                    await OnInboundReceivedAsync(socket, buffer[..length]);
                 }
             }
             Console.WriteLine($"Disconnected: {socket.RemoteEndPoint} -> {socket.LocalEndPoint}");
-            await OnDisconnectedAsync(socket);
-        }
-
-        private async Task OnConnectedAsync(Socket socket)
-        {
-            var ctx = Context.Create(node!);
-            ctx.Session.Add("inbound_socket", socket);
-            ctx.Session.Add("inbound_action", "connected");
-            await ctx.ForwardAsync(next!);
-        }
-
-        private async Task OnReceivedAsync(Socket socket, byte[] data)
-        {
-
-            var ctx = Context.Create(node!);
-            ctx.Session.Add("inbound_socket", socket);
-            ctx.Session.Add("inbound_action", "received");
-            await ctx.ForwardAsync(next!, data);
-        }
-
-        private async Task OnDisconnectedAsync(Socket socket)
-        {
-            var ctx = Context.Create(node!);
-            ctx.Session.Add("inbound_socket", socket);
-            ctx.Session.Add("inbound_action", "disconnected");
-            await ctx.ForwardAsync(next!);
+            await OnInboundDisconnectAsync(socket);
         }
 
         public async Task BackwardAsync(Context ctx)
         {
             if (ctx.Session["inbound_socket"] is Socket socket)
             {
-                await socket.SendAsync(ctx.Data!, SocketFlags.None);
-                Console.WriteLine($"Sent: {socket.RemoteEndPoint} <- {socket.LocalEndPoint}");
+                switch (ctx.Session["outbound_action"] as string)
+                {
+                    case "received":
+                        await socket.SendAsync(ctx.Data!, SocketFlags.None);
+                        Console.WriteLine($"Sent: {socket.RemoteEndPoint} <- {socket.LocalEndPoint}");
+                        break;
+                    case "disconnected":
+                        socket.Disconnect(false);
+                        break;
+                }
             }
+        }
+
+        private async Task OnInboundConnectedAsync(Socket socket)
+        {
+            var ctx = Context.Create(node!);
+            ctx.Session["inbound_socket"] = socket;
+            ctx.Session["inbound_action"] = "connected";
+            await ctx.ForwardAsync(next!);
+        }
+
+        private async Task OnInboundReceivedAsync(Socket socket, byte[] data)
+        {
+
+            var ctx = Context.Create(node!);
+            ctx.Session["inbound_socket"] = socket;
+            ctx.Session["inbound_action"] = "received";
+            await ctx.ForwardAsync(next!, data);
+        }
+
+        private async Task OnInboundDisconnectAsync(Socket socket)
+        {
+            var ctx = Context.Create(node!);
+            ctx.Session["inbound_socket"] = socket;
+            ctx.Session["inbound_action"] = "disconnected";
+            await ctx.ForwardAsync(next!);
         }
     }
 }

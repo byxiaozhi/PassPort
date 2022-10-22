@@ -10,7 +10,7 @@ namespace PassPort.Modules
     {
         private Node? node;
 
-        private static readonly ConditionalWeakTable<Socket, Socket> inboundToOutBountSocketTable = new();
+        private static readonly ConditionalWeakTable<Socket, Socket> in2OutSocketTable = new();
 
         public void Initialize(Node node)
         {
@@ -52,8 +52,26 @@ namespace PassPort.Modules
             var clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             await clientSocket.ConnectAsync(address, port);
             Console.WriteLine($"Connected: {clientSocket.LocalEndPoint} -> {clientSocket.RemoteEndPoint}");
-            inboundToOutBountSocketTable.Add(socket, clientSocket);
+            await OnOutboundConnectedAsync(clientSocket, ctx);
+            in2OutSocketTable.Add(socket, clientSocket);
             OutBoundReceiveLoop(clientSocket, ctx);
+        }
+
+        private async Task OnInboundReceivedAsync(Socket socket, byte[] data)
+        {
+            if (in2OutSocketTable.TryGetValue(socket, out var clientSocket))
+            {
+                await clientSocket.SendAsync(data, SocketFlags.None);
+                Console.WriteLine($"Sent: {clientSocket.LocalEndPoint} -> {clientSocket.RemoteEndPoint}");
+            }
+        }
+
+        private void OnInboundDisconnect(Socket socket)
+        {
+            if (in2OutSocketTable.TryGetValue(socket, out var clientSocket))
+            {
+                clientSocket.Disconnect(false);
+            }
         }
 
         private async void OutBoundReceiveLoop(Socket socket, Context ctx)
@@ -65,28 +83,33 @@ namespace PassPort.Modules
                 if (length > 0)
                 {
                     Console.WriteLine($"Received: {socket.LocalEndPoint} <- {socket.RemoteEndPoint}");
-                    await ctx.BackwardAsync(buffer[..length]);
+                    await OnOutboundReceivedAsync(socket, ctx, buffer[..length]);
                 }
             }
             Console.WriteLine($"Disconnected: {socket.LocalEndPoint} -> {socket.RemoteEndPoint}");
-            inboundToOutBountSocketTable.Remove(socket);
+            await OnOutboundDisconnectedAsync(socket, ctx);
+            in2OutSocketTable.Remove(socket);
         }
 
-        private async Task OnInboundReceivedAsync(Socket socket, byte[] data)
+        private async Task OnOutboundConnectedAsync(Socket socket, Context ctx)
         {
-            if (inboundToOutBountSocketTable.TryGetValue(socket, out var clientSocket))
-            {
-                await clientSocket.SendAsync(data, SocketFlags.None);
-                Console.WriteLine($"Sent: {clientSocket.LocalEndPoint} -> {clientSocket.RemoteEndPoint}");
-            }
+            ctx.Session["outbound_socket"] = socket;
+            ctx.Session["outbound_action"] = "connected";
+            await ctx.BackwardAsync();
         }
 
-        private void OnInboundDisconnect(Socket socket)
+        private async Task OnOutboundReceivedAsync(Socket socket, Context ctx, byte[] data)
         {
-            if (inboundToOutBountSocketTable.TryGetValue(socket, out var clientSocket))
-            {
-                clientSocket.Disconnect(false);
-            }
+            ctx.Session["outbound_socket"] = socket;
+            ctx.Session["outbound_action"] = "received";
+            await ctx.BackwardAsync(data);
+        }
+
+        private async Task OnOutboundDisconnectedAsync(Socket socket, Context ctx)
+        {
+            ctx.Session["outbound_socket"] = socket;
+            ctx.Session["outbound_action"] = "disconnected";
+            await ctx.BackwardAsync();
         }
     }
 }
