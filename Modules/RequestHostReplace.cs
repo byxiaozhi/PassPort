@@ -15,7 +15,7 @@ namespace PassPort.Modules
         {
             this.node = node;
             VerifyProperties();
-            next = Program.Config!.Graph[node!.Properties["next"]];
+            next = Program.Config!.Chains[(string)node!.Properties["next"]];
         }
 
         private void VerifyProperties()

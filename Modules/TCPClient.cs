@@ -47,8 +47,8 @@ namespace PassPort.Modules
 
         private async Task OnInboundConnectedAsync(Socket socket, Context ctx)
         {
-            var address = IPAddress.Parse(node!.Properties["address"]);
-            var port = int.Parse(node!.Properties["port"]);
+            var address = IPAddress.Parse((string)node!.Properties["address"]);
+            var port = int.Parse((string)node!.Properties["port"]);
             var clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             await clientSocket.ConnectAsync(address, port);
             // Console.WriteLine($"Connected: {clientSocket.LocalEndPoint} -> {clientSocket.RemoteEndPoint}");
@@ -89,8 +89,11 @@ namespace PassPort.Modules
                 }
                 catch
                 {
-                    if (socket.Connected)
+                    try
+                    {
                         socket.Disconnect(false);
+                    }
+                    catch { }
                     break;
                 }
             }

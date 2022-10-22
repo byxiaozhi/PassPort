@@ -17,7 +17,7 @@ namespace PassPort.Modules
             this.node = node;
             VerifyProperties();
 
-            next = Program.Config!.Graph[node!.Properties["next"]];
+            next = Program.Config!.Chains[(string)node!.Properties["next"]];
             Listen();
 
             Console.WriteLine("TCPServer module is running.");
@@ -35,8 +35,8 @@ namespace PassPort.Modules
 
         private void Listen()
         {
-            var address = IPAddress.Parse(node!.Properties["address"]);
-            var port = int.Parse(node!.Properties["port"]);
+            var address = IPAddress.Parse((string)node!.Properties["address"]);
+            var port = int.Parse((string)node!.Properties["port"]);
             var serverSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             var endPoint = new IPEndPoint(address, port);
             serverSocket.Bind(endPoint);
@@ -70,8 +70,11 @@ namespace PassPort.Modules
                 }
                 catch
                 {
-                    if (socket.Connected)
+                    try
+                    {
                         socket.Disconnect(false);
+                    }
+                    catch { }
                     break;
                 }
             }

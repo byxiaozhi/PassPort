@@ -7,11 +7,13 @@ namespace PassPort.Utilities
 {
     public static class NodeFactory
     {
-        public static Node CreateNode(ReadOnlyDictionary<string, string> properties)
+        public static Node CreateNode(string name, ReadOnlyDictionary<string, object> properties)
         {
             if (!properties.TryGetValue("module", out var module))
                 throw new ArgumentException("Property \"module\" is missing.");
-            return new Node(CreateModule(module), properties);
+            if (module is not string)
+                throw new ArgumentException("Property \"module\" is not a string.");
+            return new Node(name, CreateModule((string)module), properties);
         }
 
         private static IModule CreateModule(string module)

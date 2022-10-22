@@ -1,6 +1,6 @@
 log_file: log.log
 
-graph:
+chains:
   test_in:
     module: TCPServer
     address: 127.0.0.1

@@ -1,5 +1,4 @@
 ﻿using PassPort.Models;
-using YamlDotNet.Serialization.NamingConventions;
 using YamlDotNet.Serialization;
 
 namespace PassPort.Utilities
@@ -10,38 +9,30 @@ namespace PassPort.Utilities
         {
             using var configReader = File.OpenText(filePath);
             var deserializer = CreateDeserializer();
-            var rawConfig = deserializer.Deserialize<RawConfig>(configReader);
-            var config = new Config();
-            LoadBasicConfig(rawConfig, config);
-            LoadGraphConfig(rawConfig, config);
-            return config;
+            var config = deserializer.Deserialize(configReader) as dynamic;
+            var logFile = config?["log_file"] as string;
+            var chains = LoadChainsConfig(config?["chains"]);
+            return new(logFile, chains);
         }
 
-        private static void LoadBasicConfig(RawConfig rawConfig, Config config)
+        private static IReadOnlyDictionary<string, Node> LoadChainsConfig(object chainsConfig)
         {
-            config.LogFile = rawConfig.LogFile;
-        }
-
-        private static void LoadGraphConfig(RawConfig rawConfig, Config config)
-        {
-            if (rawConfig.Graph is null)
-                throw new ArgumentException($"Config \"graph\" is missing.");
-            foreach (var (name, properties) in rawConfig.Graph)
-                config.Graph.Add(name, NodeFactory.CreateNode(new(properties)));
+            if (chainsConfig is not Dictionary<object, object> chainsConfigDic)
+                throw new ArgumentException(null, nameof(chainsConfig));
+            var chains = new Dictionary<string, Node>();
+            foreach (var (name, value) in chainsConfigDic)
+            {
+                if (value is not Dictionary<object, object> objDic)
+                    throw new ArgumentException(null, nameof(chainsConfig));
+                var properties = objDic.ToDictionary(x => (string)x.Key, x => x.Value);
+                chains.Add((string)name, NodeFactory.CreateNode((string)name, new(properties)));
+            }
+            return chains;
         }
 
         private static IDeserializer CreateDeserializer()
         {
-            return new DeserializerBuilder()
-                .WithNamingConvention(UnderscoredNamingConvention.Instance)
-                .Build();
+            return new DeserializerBuilder().Build();
         }
-
-        private class RawConfig
-        {
-            public string? LogFile { get; set; }
-
-            public Dictionary<string, Dictionary<string, string>>? Graph { get; set; }
-        };
     }
 }

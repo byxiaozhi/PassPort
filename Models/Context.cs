@@ -2,15 +2,15 @@
 {
     public class Context
     {
-        public byte[]? Data { get; private set; }
+        public byte[]? Data { get; }
 
         public Dictionary<string, object> Session { get; }
 
-        public IReadOnlyList<Node> Stack { get; }
+        public IReadOnlyList<Node> Path { get; }
 
-        private Context(IReadOnlyList<Node> stack, byte[]? data, Dictionary<string, object> session)
+        private Context(IReadOnlyList<Node> path, byte[]? data, Dictionary<string, object> session)
         {
-            Stack = stack;
+            Path = path;
             Data = data;
             Session = session;
         }
@@ -22,7 +22,7 @@
 
         public async Task ForwardAsync(Node next, byte[]? data = null)
         {
-            var stack = Stack.Append(next).ToList();
+            var stack = Path.Append(next).ToList();
             var ctx = new Context(stack, data, Session);
             try
             {
@@ -36,7 +36,7 @@
 
         public async Task BackwardAsync(byte[]? data = null)
         {
-            var stack = Stack.Take(Stack.Count - 1).ToList();
+            var stack = Path.Take(Path.Count - 1).ToList();
             var ctx = new Context(stack, data, Session);
             var next = stack.Last();
             try

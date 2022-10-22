@@ -2,8 +2,14 @@
 {
     public class Config
     {
-        public string? LogFile { get; set; }
+        public string? LogFile { get; }
 
-        public Dictionary<string, Node> Graph { get; } = new();
+        public IReadOnlyDictionary<string, Node> Chains { get; }
+
+        public Config(string? logFile, IReadOnlyDictionary<string, Node> chains)
+        {
+            LogFile = logFile;
+            Chains = chains;
+        }
     }
 }
