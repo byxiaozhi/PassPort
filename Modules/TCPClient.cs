@@ -51,7 +51,7 @@ namespace PassPort.Modules
             var port = int.Parse(node!.Properties["port"]);
             var clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             await clientSocket.ConnectAsync(address, port);
-            Console.WriteLine($"Connected: {clientSocket.LocalEndPoint} -> {clientSocket.RemoteEndPoint}");
+            // Console.WriteLine($"Connected: {clientSocket.LocalEndPoint} -> {clientSocket.RemoteEndPoint}");
             await OnOutboundConnectedAsync(clientSocket, ctx);
             in2OutSocketTable.Add(socket, clientSocket);
             OutBoundReceiveLoop(clientSocket, ctx);
@@ -62,7 +62,7 @@ namespace PassPort.Modules
             if (in2OutSocketTable.TryGetValue(socket, out var clientSocket))
             {
                 await clientSocket.SendAsync(data, SocketFlags.None);
-                Console.WriteLine($"Sent: {clientSocket.LocalEndPoint} -> {clientSocket.RemoteEndPoint}");
+                // Console.WriteLine($"Sent: {clientSocket.LocalEndPoint} -> {clientSocket.RemoteEndPoint}");
             }
         }
 
@@ -79,14 +79,22 @@ namespace PassPort.Modules
             var buffer = new byte[8192];
             while (socket.Connected)
             {
-                var length = await socket.ReceiveAsync(buffer, SocketFlags.None);
-                if (length > 0)
+                try
                 {
-                    Console.WriteLine($"Received: {socket.LocalEndPoint} <- {socket.RemoteEndPoint}");
+                    var length = await socket.ReceiveAsync(buffer, SocketFlags.None);
+                    if (length <= 0)
+                        throw new SocketException();
+                    // Console.WriteLine($"Received: {socket.LocalEndPoint} <- {socket.RemoteEndPoint}");
                     await OnOutboundReceivedAsync(socket, ctx, buffer[..length]);
                 }
+                catch
+                {
+                    if (socket.Connected)
+                        socket.Disconnect(false);
+                    break;
+                }
             }
-            Console.WriteLine($"Disconnected: {socket.LocalEndPoint} -> {socket.RemoteEndPoint}");
+            // Console.WriteLine($"Disconnected: {socket.LocalEndPoint} -> {socket.RemoteEndPoint}");
             await OnOutboundDisconnectedAsync(socket, ctx);
             in2OutSocketTable.Remove(socket);
         }

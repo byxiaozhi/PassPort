@@ -49,7 +49,7 @@ namespace PassPort.Modules
             while (true)
             {
                 var client = await socket.AcceptAsync();
-                Console.WriteLine($"Connected: {client.RemoteEndPoint} -> {client.LocalEndPoint}");
+                // Console.WriteLine($"Connected: {client.RemoteEndPoint} -> {client.LocalEndPoint}");
                 ReceiveLoop(client);
             }
         }
@@ -60,14 +60,22 @@ namespace PassPort.Modules
             var buffer = new byte[8192];
             while (socket.Connected)
             {
-                var length = await socket.ReceiveAsync(buffer, SocketFlags.None);
-                if (length > 0)
+                try
                 {
-                    Console.WriteLine($"Received: {socket.RemoteEndPoint} -> {socket.LocalEndPoint}");
+                    var length = await socket.ReceiveAsync(buffer, SocketFlags.None);
+                    if (length <= 0)
+                        throw new SocketException();
+                    // Console.WriteLine($"Received: {socket.RemoteEndPoint} -> {socket.LocalEndPoint}");
                     await OnInboundReceivedAsync(socket, buffer[..length]);
                 }
+                catch
+                {
+                    if (socket.Connected)
+                        socket.Disconnect(false);
+                    break;
+                }
             }
-            Console.WriteLine($"Disconnected: {socket.RemoteEndPoint} -> {socket.LocalEndPoint}");
+            // Console.WriteLine($"Disconnected: {socket.RemoteEndPoint} -> {socket.LocalEndPoint}");
             await OnInboundDisconnectAsync(socket);
         }
 
@@ -78,8 +86,8 @@ namespace PassPort.Modules
                 switch (ctx.Session["outbound_action"] as string)
                 {
                     case "received":
-                        await socket.SendAsync(ctx.Data!, SocketFlags.None);
-                        Console.WriteLine($"Sent: {socket.RemoteEndPoint} <- {socket.LocalEndPoint}");
+                        await OnOutboundReceivedAsync(socket, ctx.Data!);
+                        // Console.WriteLine($"Sent: {socket.RemoteEndPoint} <- {socket.LocalEndPoint}");
                         break;
                     case "disconnected":
                         socket.Disconnect(false);
@@ -111,6 +119,15 @@ namespace PassPort.Modules
             ctx.Session["inbound_socket"] = socket;
             ctx.Session["inbound_action"] = "disconnected";
             await ctx.ForwardAsync(next!);
+        }
+
+        private async Task OnOutboundReceivedAsync(Socket socket, byte[] data)
+        {
+            try
+            {
+                await socket.SendAsync(data, SocketFlags.None);
+            }
+            catch { }
         }
     }
 }
